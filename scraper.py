@@ -10,6 +10,7 @@ import datetime
 
 
 def check_for_people(links):
+    #Please note you will have to update this path based on where you have installed phantomjs
     browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
     
     master_list = list()
