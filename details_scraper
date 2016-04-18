@@ -1,0 +1,57 @@
+from lxml import etree
+def get_details_of_single_person(url):
+    browser.get(url) 
+    browser.execute_script("window.scrollTo(0,1500)") 
+    soup = BeautifulSoup(browser.page_source,"lxml")
+    title = soup.findAll(attrs={'class': 'firstHeading'})
+    name = title[0].text
+    dob = soup.findAll(attrs={'class': 'bday'})
+    position = soup.findAll(attrs={'class': 'role'})
+    spouses = list()
+    children = list()
+    institutions = list()
+    table = soup.findAll(attrs={'class' : 'infobox'})[0]
+    for row in table.findAll("tr"):
+        category =""
+        value = ""
+        if row.findAll("th") and row.findAll("td"):
+            category = str(row.find("th").text)
+            value = str(row.find("td").text)
+        if category in ['Net Worth','net worth','Net worth']:
+            net_worth = value
+        if category in ['Spouse','Spouses','Spouse(s)','Partner','Partner(s)','Wife','Husband']:
+            spouses.append(value)
+        if category in ['Child','Children','child','children']:
+            children.append(value)
+        if category in ['Institute','Institution','Institution(s)','Institutions','Almamater','Alma mater','University','College', 'Company','Employer','Board Member of','Party','Political Party']:
+            institutions.append(value)
+    new_person = Person(name)
+    if dob:
+        new_person.add_dob(dob[0].text)
+    if position:
+        new_person.add_position(position[0].text)
+    if spouses:
+        new_person.add_spouse(spouses)
+    if children:
+        new_person.add_child(children)
+    if institutions:
+        new_person.add_institution(institutions)
+    return new_person
+
+
+
+def get_details_of_people(url_list):
+    people_details = list()
+    browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
+    for url in url_list:
+        new_person = get_details_of_single_person(url)
+        people_details.append(new_person)
+    
+    for p in people_details:
+        print (str(p.name) + str(p.dob) + str(p.positions) + str(p.net_worth) + str(p.spouse) + str(p.children) + str(p.institutions))
+    
+    
+test = list()
+test.append('https://en.wikipedia.org/wiki/Oprah_Winfrey')
+test.append('https://en.wikipedia.org/wiki/Barack_Obama')
+get_details_of_people(test)
