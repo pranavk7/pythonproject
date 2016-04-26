@@ -1,5 +1,5 @@
 class Person(object):
-    # The class "constructor" - It's actually an initializer 
+    # The class "constructor" - It's actually an initializer
     def __init__(self, name, url):
         self.name = name
         self.dob = ""
@@ -12,22 +12,24 @@ class Person(object):
         self.connections = []
         self.connection_urls = []
         self.institutions = []
-
+        self.page_html = ""
     def add_dob(self, dob):
         self.dob = dob
     def add_position(self, position):
-        self.positions.append(position)
+        self.positions = position
     def set_net_worth(self, net_worth):
         self.net_worth = net_worth
     def set_active(self, active):
         self.active = active
     def add_spouse(self, spouse):
-        self.spouse.append(spouse)
+        self.spouse = spouse
     def add_child(self, child):
-        self.children.append(child)
+        self.children = child
     def add_connection(self, connection):
-        self.connections.append(connection)
+        self.connections = self.connections + connection
     def add_connection_urls(self, connection_urls):
-        self.connection_urls.append(connection_urls)
+        self.connection_urls = connection_urls
     def add_institution(self, institute):
         self.institutions = self.institutions + institute
+    def addhtml(self, html):
+        self.page_html = html
