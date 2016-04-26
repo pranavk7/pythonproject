@@ -58,7 +58,7 @@ def get_connection_matrix(people_details):
     matrix = []
     for person in people_details:
         for connection in person.connections:
-            matrix.append([[person.name,connection[0].name],connection[1]])
+            matrix.append([(person.name,connection[0].name,connection[1]))
     return matrix
 
 def get_friends_list(url, master_list_of_people, page_html):
