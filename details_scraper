@@ -1,94 +1,87 @@
 from lxml import etree
+import nltk
+from nltk import word_tokenize
 
-def get_name(browser):
-    soup = BeautifulSoup(browser.page_source,"lxml")
-    title = soup.findAll(attrs={'class': 'firstHeading'})
-    name = title[0].text
-    return name
 
 def get_frequency_in_page(body_content, name):
     score = 0
     last_name = name.split()[-1]
-    score += body_content.split().count(last_name)
+    score += sum(x in {last_name,str(last_name+'\'s')} for x in nltk.wordpunct_tokenize(body_content))
     return score
 def get_institution_scores(people_details):
     institute_scores = list()
-    
+
     for person in people_details:
         for institute in person.institutions:
             if institute not in institute_scores:
                 institute_scores[institute] = 1
             else:
-                institute_scores[institute] += 1  
+                institute_scores[institute] += 1
     return institute_scores
 
+def get_person_from_url(url, people_details):
+
+    for person in people_details:
+        if person.url == url:
+            return person
+    print("url " + str(url) +" not found")
+
 def get_connection_scores(people_details):
-    
+
     institution_scores = get_institution_scores(people_details)
-    
+
     for person in people_details:
         connections = person.connection_urls
         for connection in connections:
-            browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
-            browser.get(connection)
-            connection_name = get_name(browser)
-            soup = BeautifulSoup(browser.page_source,"lxml")
-            connection_body_content = soup.findAll('div', attrs={'id' : 'bodyContent'})
+            connection_score = 0
+            conn = get_person_from_url(connection, people_details)
+            if conn:
+                #Get number of occurences of connection in person's page
+                connection_score = get_frequency_in_page(conn.page_html, person.name)
 
-            #Get number of occurences of connection in person's page
-            connection_score = get_frequency_in_page(connection_body_content, connection_name)
-            
-            #Get number of occurences of person in connection's page
-            browser.get(person.url)
-            soup = BeautifulSoup(browser.page_source,"lxml")
-            person_body_content = soup.findAll('div', attrs={'id' : 'bodyContent'})
-            connection_score += get_frequency_in_page(person_body_content, person.name)
-            
-            #Add weight for spouse and children
-            if ((connection.name in person.spouses) or (person.name in connection.spouses)):
-                connection_score +=10
-            if ((connection.name in person.children) or (person.name in connection.children)):
-                connection_score += 5
-            
-            #Add weight for institutions
-            commons_institutes = list(set(person.institutions).intersection(connection.institutions))
-            for insti in common_institutes:
-                connection_score += institution_scores[insti]
-            person.add_connection([connection,connection_score])
-    
+                #Get number of occurences of person in connection's page
+                connection_score += get_frequency_in_page(person.page_html, conn.name)
+
+                #Add weight for spouse and children
+                if ((conn.name in person.spouse) or (person.name in conn.spouse)):
+                    connection_score +=10
+                if ((conn.name in person.children) or (person.name in conn.children)):
+                    connection_score += 5
+
+                #Add weight for institutions
+                common_institutes = list(set(person.institutions).intersection(conn.institutions))
+                for insti in common_institutes:
+                    connection_score += institution_scores[insti]
+                person.add_connection([[conn , connection_score]])
+
 def get_connection_matrix(people_details):
     matrix = []
     for person in people_details:
         for connection in person.connections:
-            matrix.append([person.name,connection[0].name],connection[1])
+            matrix.append([[person.name,connection[0].name],connection[1]])
     return matrix
 
-def get_friends_list(url):
-    browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
-    browser.get('https://en.wikipedia.org/wiki/Bill_Gates') 
-    soup = BeautifulSoup(browser.page_source,"lxml")
-    body_content = soup.findAll('div', attrs={'id' : 'bodyContent'})
-    if (body_content):
-        body_soup = BeautifulSoup(str(body_content[0]),"lxml")
+def get_friends_list(master_list_of_people, page_html):
+    friends_url = list()
+    if (page_html):
+
+        body_soup = BeautifulSoup(str(page_html),"lxml")
         all_urls_full = body_soup.findAll("a")
 
-    all_urls=list()
-    for element in all_urls_full:
-        full_link = 'https://en.wikipedia.org' + element.get('href')
-        if full_link not in all_urls:
-            all_urls.append(full_link)
+        all_urls=list()
+        for element in all_urls_full:
+            full_link = 'https://en.wikipedia.org' + element.get('href')
+            if full_link not in all_urls:
+                all_urls.append(full_link)
 
-    friends_url = list()
-    for single_url in all_urls:
-        if single_url in master_list_of_people:
-            friends_url.append(single_url)
-
+        for single_url in all_urls:
+            if single_url in master_list_of_people:
+                friends_url.append(single_url)
     return friends_url
 
-def get_details_of_single_person(url, master_list_of_people):
-    browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
-    browser.get(url) 
-    browser.execute_script("window.scrollTo(0,1500)") 
+def get_details_of_single_person(browser, url, master_list_of_people):
+    browser.get(url)
+    browser.execute_script("window.scrollTo(0,1500)")
     soup = BeautifulSoup(browser.page_source,"lxml")
     title = soup.findAll(attrs={'class': 'firstHeading'})
     name = title[0].text
@@ -99,6 +92,7 @@ def get_details_of_single_person(url, master_list_of_people):
     spouses = list()
     children = list()
     institutions = list()
+    page_html = str(soup.findAll('div', attrs={'id' : 'bodyContent'})[0])
     table = soup.findAll(attrs={'class' : 'infobox'})[0]
     for row in table.findAll("tr"):
         category =""
@@ -106,7 +100,7 @@ def get_details_of_single_person(url, master_list_of_people):
         if row.findAll("th") and row.findAll("td"):
             category = str(row.find("th").text)
             value = str(row.find("td").text)
-        elif row.findAll('th'): 
+        elif row.findAll('th'):
             category = 'position'
             value = str(row.find("th").text)
         if category in ['Net Worth','net worth','Net worth']:
@@ -119,11 +113,10 @@ def get_details_of_single_person(url, master_list_of_people):
             institutions.append(value)
         if category in['position','Occupation']:
             position.append(value)
-    
-    
-    friends_urls = list()
-    friends_urls = get_friends_list(url)
-    
+
+
+    friends_urls = get_friends_list(master_list_of_people, page_html)
+
     new_person = Person(name, url)
     if dob:
         new_person.add_dob(dob[0].text)
@@ -138,25 +131,19 @@ def get_details_of_single_person(url, master_list_of_people):
     if friends_urls:
         new_person.add_connection_urls(friends_urls)
 
+    new_person.addhtml(page_html)
     return new_person
 
 
 
 def get_details_of_people(url_list):
-    people_details = list()
     browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
+    people_details = list()
     for url in url_list:
-        new_person = get_details_of_single_person(url, url_list)
+        new_person = get_details_of_single_person(browser, url, url_list)
         people_details.append(new_person)
-    
+
     get_connection_scores(people_details)
     matrix = get_connection_matrix(people_details)
-    
+
     return people_details, matrix
-
-
-
-people_details = get_details_of_people(get_list_of_people())
-
-for p in people_details:
-        print (str(p.name) + str(p.dob) + str(p.positions) + str(p.net_worth) + str(p.spouse) + str(p.children) + str(p.institutions))
