@@ -53,12 +53,13 @@ def get_connection_scores(people_details):
                 for insti in common_institutes:
                     connection_score += institution_scores[insti]
                 person.add_connection([[conn , connection_score]])
+    return institution_scores
     
 def get_connection_matrix(people_details):
     matrix = []
     for person in people_details:
         for connection in person.connections:
-            matrix.append([(person.name,connection[0].name,connection[1]))
+            matrix.append((person.name,connection[0].name,connection[1]))
     return matrix
 
 def get_friends_list(url, master_list_of_people, page_html):
@@ -110,8 +111,13 @@ def get_details_of_single_person(browser, url, master_list_of_people):
             spouses.append(value)
         if category in ['Child','Children','child','children']:
             children.append(value)
-        if category in ['Institute','Institution','Institution(s)','Institutions','Almamater','Alma mater','University','College', 'Company','Employer','Board Member of','Party','Political Party']:
-            institutions.append(value)
+        if (category in ['Institute','Institution','Institution(s)','Institutions','Almamater','University','College', 'Company','Employer','Party']) or re.search('Alma.*mater',category) or re.search('Board.*member.*of.*',category) or re.search('Political.*Party.*',category) :
+            full_str = value.strip()
+            lis = list()
+            lis = re.split(', ?|\*|\n+| *\(.*?\)|(.*)\[.*\]',full_str)
+            instis = list()
+            instis += [l for l in lis if l]
+            institutions += instis
         if category in['position','Occupation']:
             position.append(value)
     
@@ -147,7 +153,7 @@ def get_details_of_people(url_list):
         new_person = get_details_of_single_person(browser, url, url_list)
         people_details.append(new_person)
     
-    get_connection_scores(people_details)
+    institution_scores = get_connection_scores(people_details)
     matrix = get_connection_matrix(people_details)
     
-    return people_details, matrix
+    return people_details, matrix, institution_scores
