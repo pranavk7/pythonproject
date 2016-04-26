@@ -1,11 +1,11 @@
 class Person(object):
-    # The class "constructor" - It's actually an initializer
+    # The class "constructor" - It's actually an initializer 
     def __init__(self, name, url):
         self.name = name
         self.dob = ""
         self.url = url
         self.positions= []
-        self.net_worth = 0
+        self.net_worth = "0"
         self.spouse = []
         self.children = []
         self.active = True
@@ -17,7 +17,7 @@ class Person(object):
         self.dob = dob
     def add_position(self, position):
         self.positions = position
-    def set_net_worth(self, net_worth):
+    def add_net_worth(self, net_worth):
         self.net_worth = net_worth
     def set_active(self, active):
         self.active = active
