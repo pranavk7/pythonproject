@@ -9,27 +9,27 @@ def get_frequency_in_page(body_content, name):
     score += sum(x in {last_name,str(last_name+'\'s')} for x in nltk.wordpunct_tokenize(body_content))
     return score
 def get_institution_scores(people_details):
-    institute_scores = list()
-
+    institute_scores = {}
+    
     for person in people_details:
         for institute in person.institutions:
             if institute not in institute_scores:
                 institute_scores[institute] = 1
             else:
-                institute_scores[institute] += 1
+                institute_scores[institute] += 1  
     return institute_scores
 
 def get_person_from_url(url, people_details):
-
+    
     for person in people_details:
         if person.url == url:
             return person
     print("url " + str(url) +" not found")
-
+    
 def get_connection_scores(people_details):
-
+    
     institution_scores = get_institution_scores(people_details)
-
+    
     for person in people_details:
         connections = person.connection_urls
         for connection in connections:
@@ -53,7 +53,7 @@ def get_connection_scores(people_details):
                 for insti in common_institutes:
                     connection_score += institution_scores[insti]
                 person.add_connection([[conn , connection_score]])
-
+    
 def get_connection_matrix(people_details):
     matrix = []
     for person in people_details:
@@ -61,17 +61,17 @@ def get_connection_matrix(people_details):
             matrix.append([[person.name,connection[0].name],connection[1]])
     return matrix
 
-def get_friends_list(master_list_of_people, page_html):
+def get_friends_list(url, master_list_of_people, page_html):
     friends_url = list()
     if (page_html):
-
+        
         body_soup = BeautifulSoup(str(page_html),"lxml")
         all_urls_full = body_soup.findAll("a")
 
         all_urls=list()
         for element in all_urls_full:
             full_link = 'https://en.wikipedia.org' + element.get('href')
-            if full_link not in all_urls:
+            if (full_link not in all_urls) and (not url==full_link) :
                 all_urls.append(full_link)
 
         for single_url in all_urls:
@@ -80,8 +80,8 @@ def get_friends_list(master_list_of_people, page_html):
     return friends_url
 
 def get_details_of_single_person(browser, url, master_list_of_people):
-    browser.get(url)
-    browser.execute_script("window.scrollTo(0,1500)")
+    browser.get(url) 
+    browser.execute_script("window.scrollTo(0,1500)") 
     soup = BeautifulSoup(browser.page_source,"lxml")
     title = soup.findAll(attrs={'class': 'firstHeading'})
     name = title[0].text
@@ -92,6 +92,7 @@ def get_details_of_single_person(browser, url, master_list_of_people):
     spouses = list()
     children = list()
     institutions = list()
+    net_worth = "0"
     page_html = str(soup.findAll('div', attrs={'id' : 'bodyContent'})[0])
     table = soup.findAll(attrs={'class' : 'infobox'})[0]
     for row in table.findAll("tr"):
@@ -100,10 +101,10 @@ def get_details_of_single_person(browser, url, master_list_of_people):
         if row.findAll("th") and row.findAll("td"):
             category = str(row.find("th").text)
             value = str(row.find("td").text)
-        elif row.findAll('th'):
+        elif row.findAll('th'): 
             category = 'position'
             value = str(row.find("th").text)
-        if category in ['Net Worth','net worth','Net worth']:
+        if (category in ['Net Worth','net worth','Net worth']) or re.search('Net.*worth',category):
             net_worth = value
         if category in ['Spouse','Spouses','Spouse(s)','Partner','Partner(s)','Wife','Husband']:
             spouses.append(value)
@@ -113,13 +114,14 @@ def get_details_of_single_person(browser, url, master_list_of_people):
             institutions.append(value)
         if category in['position','Occupation']:
             position.append(value)
-
-
-    friends_urls = get_friends_list(master_list_of_people, page_html)
-
+    
+    
+    friends_urls = get_friends_list(url, master_list_of_people, page_html)
     new_person = Person(name, url)
     if dob:
         new_person.add_dob(dob[0].text)
+    if net_worth:
+        new_person.add_net_worth(net_worth)
     if position:
         new_person.add_position(position)
     if spouses:
@@ -130,7 +132,7 @@ def get_details_of_single_person(browser, url, master_list_of_people):
         new_person.add_institution(institutions)
     if friends_urls:
         new_person.add_connection_urls(friends_urls)
-
+    
     new_person.addhtml(page_html)
     return new_person
 
@@ -139,11 +141,13 @@ def get_details_of_single_person(browser, url, master_list_of_people):
 def get_details_of_people(url_list):
     browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
     people_details = list()
+    count = 0
     for url in url_list:
+        count +=1
         new_person = get_details_of_single_person(browser, url, url_list)
         people_details.append(new_person)
-
+    
     get_connection_scores(people_details)
     matrix = get_connection_matrix(people_details)
-
+    
     return people_details, matrix
