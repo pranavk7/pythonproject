@@ -1,134 +1,149 @@
-import urllib.request as ur
-from bs4 import BeautifulSoup,SoupStrainer
-import re
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import datetime
-
-def isPerson(browser, url):
-    browser.get(url)
-    returnVal = False
-    soup = BeautifulSoup(browser.page_source,"lxml")
-    table = soup.findAll("table", {"class":"infobox"})
-    if table:
-        tablesoup = BeautifulSoup(str(table[0]),"lxml")
-        if tablesoup.body.findAll(text='Born'):
-            returnVal = True
-    return returnVal
-
-def check_for_people(links):
-    #Please note you will have to update this path based on where you have installed phantomjs
-    browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
-    master_list = list()
-    for link in links:
-        if isPerson(browser, link):
-            master_list.append(link)
-    return master_list
+from lxml import etree
+import nltk
+from nltk import word_tokenize
 
 
-def check_url_exists_and_get_data(url):
-    #Pop our imports inside the function so they will always be loaded
-    import urllib.request as ur
-    import urllib.error as ue
-    from bs4 import BeautifulSoup
-    try:
-        url_req=ur.Request(url)
-        url_response=ur.urlopen(url_req)
+def get_frequency_in_page(body_content, name):
+    score = 0
+    last_name = name.split()[-1]
+    score += sum(x in {last_name,str(last_name+'\'s')} for x in nltk.wordpunct_tokenize(body_content))
+    return score
+def get_institution_scores(people_details):
+    institute_scores = list()
 
-    except ue.HTTPError as e:
-        print("HTTPError",e, "at url",url)
-        return None
-    except ue.URLError as e:
-        print("URLError",e,"at url",url)
-    else:
-        return url_response
+    for person in people_details:
+        for institute in person.institutions:
+            if institute not in institute_scores:
+                institute_scores[institute] = 1
+            else:
+                institute_scores[institute] += 1
+    return institute_scores
 
-def get_list_of_people():
-    depth_limit=2
-    unsearched_links=list()
-    searched_links = list()
+def get_person_from_url(url, people_details):
 
-    #TEST LINK ONLY
-    #unsearched_links.append('https://en.wikipedia.org/wiki/The_World%27s_Billionaires_2015')
+    for person in people_details:
+        if person.url == url:
+            return person
+    print("url " + str(url) +" not found")
 
-    unsearched_links.append('https://en.wikipedia.org/wiki/The_World%27s_Billionaires')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Forbes_list_of_The_World%27s_Most_Powerful_People')
-    unsearched_links.append('https://en.wikipedia.org/wiki/The_World%27s_Billionaires#2007_Top_10')
-    unsearched_links.append('https://en.wikipedia.org/wiki/The_World%27s_Billionaires_2015')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_female_billionaires')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_Italian_billionaires')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Forbes_list_of_Indian_billionaires')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Sunday_Times_Rich_List_2015')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Sunday_Times_Rich_List_2014')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Fortune_Global_500')
-    unsearched_links.append('https://en.wikipedia.org/wiki/The_World%27s_Billionaires_2010')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_chief_executive_officers')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_women_CEOs_of_Fortune_500_companies')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Category:American_chief_executives_of_Fortune_500_companies')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_NATO_Secretaries_General')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_Nobel_laureates_by_country#United_States')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_people_on_multiple_governing_boards')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Forbes_Celebrity_100')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Time_100:_The_Most_Important_People_of_the_Century')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_members_of_the_Forbes_400')
-    unsearched_links.append('https://en.wikipedia.org/wiki/The_World%27s_Billionaires')
-    unsearched_links.append('https://de.wikipedia.org/wiki/The_World%E2%80%99s_Most_Powerful_People')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_richest_American_politicians')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_Jewish_American_politicians')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_current_United_States_governors')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_current_United_States_Senators')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_former_United_States_Senators')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Current_members_of_the_United_States_House_of_Representatives')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_former_members_of_the_United_States_House_of_Representatives')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_monarchs_of_Hawaii')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Speaker_of_the_United_States_House_of_Representatives#Notable_elections')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_Secretaries_of_State_of_the_United_States')
-    unsearched_links.append('https://en.wikipedia.org/wiki/United_States_Secretary_of_the_Treasury#List')
-    unsearched_links.append('https://en.wikipedia.org/wiki/United_States_Secretary_of_Defense')
-    unsearched_links.append('https://en.wikipedia.org/wiki/United_States_Attorney_General#Living_former_U.S._Attorneys_General')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_the_oldest_living_members_of_the_United_States_House_of_Representatives')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_female_governors_in_the_United_States')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_U.S._presidential_relatives#Relatives_of_Barack_Obama_-_44th_President')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_United_States_Democratic_Party_presidential_candidates')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_United_States_Democratic_Party_presidential_tickets')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Power_100')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_American_Catholics')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_Presidents_of_the_United_States')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Forbes_list_of_The_World%27s_Most_Powerful_People')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Forbes_list_of_The_World%27s_100_Most_Powerful_Women')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Chief_Justice_of_the_United_States')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_United_States_Navy_people')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_United_States_Navy_four-star_admirals')
-    unsearched_links.append('https://en.wikipedia.org/wiki/List_of_United_States_Air_Force_four-star_generals')
-    unsearched_links.append('https://en.wikipedia.org/wiki/United_States_Secretary_of_the_Air_Force')
-    unsearched_links.append('https://en.wikipedia.org/wiki/Chief_of_Staff_of_the_United_States_Air_Force')
+def get_connection_scores(people_details):
 
-    tablelist = list()
-    while unsearched_links:
-        current_link=unsearched_links.pop()
-        if current_link in searched_links:
-            continue
-        else:
-            searched_links.append(current_link)
+    institution_scores = get_institution_scores(people_details)
 
-        #These three lines will take care of all url issues for us!
-        response=check_url_exists_and_get_data(current_link)
-        if not response: #Add this to skip any None returned by get_url_data
-            continue
+    for person in people_details:
+        connections = person.connection_urls
+        for connection in connections:
+            connection_score = 0
+            conn = get_person_from_url(connection, people_details)
+            if conn:
+                #Get number of occurences of connection in person's page
+                connection_score = get_frequency_in_page(conn.page_html, person.name)
 
-        soup = BeautifulSoup(response,"lxml")
-        tables = soup.findAll("table", {"class":"wikitable sortable"})
-        for table in tables:
-            tablelist.append(table)
+                #Get number of occurences of person in connection's page
+                connection_score += get_frequency_in_page(person.page_html, conn.name)
 
-    links = list()
-    for table in tablelist:
-        results = table.findAll("a")
-        for element in results:
+                #Add weight for spouse and children
+                if ((conn.name in person.spouse) or (person.name in conn.spouse)):
+                    connection_score +=10
+                if ((conn.name in person.children) or (person.name in conn.children)):
+                    connection_score += 5
+
+                #Add weight for institutions
+                common_institutes = list(set(person.institutions).intersection(conn.institutions))
+                for insti in common_institutes:
+                    connection_score += institution_scores[insti]
+                person.add_connection([[conn , connection_score]])
+
+def get_connection_matrix(people_details):
+    matrix = []
+    for person in people_details:
+        for connection in person.connections:
+            matrix.append([[person.name,connection[0].name],connection[1]])
+    return matrix
+
+def get_friends_list(master_list_of_people, page_html):
+    friends_url = list()
+    if (page_html):
+
+        body_soup = BeautifulSoup(str(page_html),"lxml")
+        all_urls_full = body_soup.findAll("a")
+
+        all_urls=list()
+        for element in all_urls_full:
             full_link = 'https://en.wikipedia.org' + element.get('href')
-            if not full_link in links:
-                links.append(full_link)
+            if full_link not in all_urls:
+                all_urls.append(full_link)
 
-    return check_for_people(links)
+        for single_url in all_urls:
+            if single_url in master_list_of_people:
+                friends_url.append(single_url)
+    return friends_url
+
+def get_details_of_single_person(browser, url, master_list_of_people):
+    browser.get(url)
+    browser.execute_script("window.scrollTo(0,1500)")
+    soup = BeautifulSoup(browser.page_source,"lxml")
+    title = soup.findAll(attrs={'class': 'firstHeading'})
+    name = title[0].text
+    dob = soup.findAll(attrs={'class': 'bday'})
+    pos = soup.findAll(attrs={'class': 'role'})
+    position = list()
+    position.append(pos)
+    spouses = list()
+    children = list()
+    institutions = list()
+    page_html = str(soup.findAll('div', attrs={'id' : 'bodyContent'})[0])
+    table = soup.findAll(attrs={'class' : 'infobox'})[0]
+    for row in table.findAll("tr"):
+        category =""
+        value = ""
+        if row.findAll("th") and row.findAll("td"):
+            category = str(row.find("th").text)
+            value = str(row.find("td").text)
+        elif row.findAll('th'):
+            category = 'position'
+            value = str(row.find("th").text)
+        if category in ['Net Worth','net worth','Net worth']:
+            net_worth = value
+        if category in ['Spouse','Spouses','Spouse(s)','Partner','Partner(s)','Wife','Husband']:
+            spouses.append(value)
+        if category in ['Child','Children','child','children']:
+            children.append(value)
+        if category in ['Institute','Institution','Institution(s)','Institutions','Almamater','Alma mater','University','College', 'Company','Employer','Board Member of','Party','Political Party']:
+            institutions.append(value)
+        if category in['position','Occupation']:
+            position.append(value)
+
+
+    friends_urls = get_friends_list(master_list_of_people, page_html)
+
+    new_person = Person(name, url)
+    if dob:
+        new_person.add_dob(dob[0].text)
+    if position:
+        new_person.add_position(position)
+    if spouses:
+        new_person.add_spouse(spouses)
+    if children:
+        new_person.add_child(children)
+    if institutions:
+        new_person.add_institution(institutions)
+    if friends_urls:
+        new_person.add_connection_urls(friends_urls)
+
+    new_person.addhtml(page_html)
+    return new_person
+
+
+
+def get_details_of_people(url_list):
+    browser = webdriver.PhantomJS(executable_path='/Users/pranavnagesh/Desktop/PK/Spring 2016/Python/Code work/phantomjs')
+    people_details = list()
+    for url in url_list:
+        new_person = get_details_of_single_person(browser, url, url_list)
+        people_details.append(new_person)
+
+    get_connection_scores(people_details)
+    matrix = get_connection_matrix(people_details)
+
+    return people_details, matrix
